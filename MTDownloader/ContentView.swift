@@ -77,6 +77,13 @@ struct ContentView: View {
                     }
                 }
 
+                Section("当前设备") {
+                    DeviceInfoCard()
+                    Text("已按本机原生分辨率渲染，竖屏 / 横屏自动重排。")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+
                 Section {
                     Button("查看已下载的文件") { showFiles = true }
                 }
