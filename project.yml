@@ -26,6 +26,9 @@ targets:
       - path: MTDownloader/DeviceInfo.swift
       - path: MTDownloader/DownloadManager.swift
       - path: MTDownloader/ChunkDownloader.swift
+      - path: MTDownloader/BrowserView.swift
+      - path: MTDownloader/LANTransfer.swift
+      - path: MTDownloader/LANView.swift
       - path: MTDownloader/FilesView.swift
     settings:
       base:
