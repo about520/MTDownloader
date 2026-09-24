@@ -44,7 +44,8 @@ final class ChunkDownloader: NSObject, URLSessionDataDelegate {
         super.init()
     }
 
-    func start() {
+    /// 注意：不能叫 start()，因为类里已有一个叫 start 的 Int64 属性（起始偏移），会重名。
+    func resume() {
         guard task == nil, !isFinished else { return }
 
         var req = URLRequest(url: url,
