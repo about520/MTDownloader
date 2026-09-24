@@ -90,7 +90,7 @@ final class LANServer: ObservableObject {
                     DispatchQueue.main.async {
                         self.isRunning = false
                         self.port = 0
-                        self.statusText = "开启失败：\(err.localizedDescription)"
+                        self.statusText = Self.friendlyError(err)
                     }
                 case .cancelled:
                     DispatchQueue.main.async {
@@ -330,8 +330,20 @@ final class LANServer: ObservableObject {
         drop(conn)
     }
 
-    private static func reason(_ code: Int) -> String {
-        switch code {
+    /// 把系统错误翻译成能看懂的提示
+    static func friendlyError(_ e: NWError) -> String {
+        let s = String(describing: e)
+        // -65555 NoAuth = 本地网络权限没放行（iOS 14+ 隐私限制）
+        if s.contains("NoAuth") || s.contains("-65555") {
+            return "系统没放行：去 设置 → 隐私与安全性 → 本地网络，打开「多线程下载器」的开关"
+        }
+        if s.contains("EADDRINUSE") {
+            return "端口被占用，请稍后再试"
+        }
+        return "开启失败：\(s)"
+    }
+
+    private static func reason(_ code: Int) -> String {        switch code {
         case 200: return "OK"
         case 206: return "Partial Content"
         case 400: return "Bad Request"
@@ -371,6 +383,12 @@ final class LANFinder: NSObject, ObservableObject, NetServiceDelegate {
             DispatchQueue.main.async {
                 self.peers = list
                 self.statusText = list.isEmpty ? "没找到其他设备" : "找到 \(list.count) 台设备"
+            }
+        }
+
+        b.stateUpdateHandler = { [weak self] state in
+            if case .failed(let e) = state {
+                DispatchQueue.main.async { self?.statusText = LANServer.friendlyError(e) }
             }
         }
 
