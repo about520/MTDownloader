@@ -11,10 +11,10 @@ settings:
     # 1 = iPhone, 2 = iPad，两个家族都支持，iPad 上才能以平板原生分辨率跑
     TARGETED_DEVICE_FAMILY: "1,2"
     ENABLE_BITCODE: "NO"
-    # 用真正的 LaunchScreen.storyboard，iOS 才会按设备原生分辨率渲染，
-    # 否则系统会判定「未适配新机型」而退回兼容缩放模式（画面被拉伸、上下黑边）。
-    # 具体的键写在下面的 info.properties 里（UILaunchStoryboardName），
-    # 这里不再重复定义 INFOPLIST_KEY_，避免和生成的 Info.plist 撞键。
+    # 启动屏用 Info.plist 里的 UILaunchScreen 字典声明（Xcode 15+ 官方模板做法），
+    # 不再依赖 LaunchScreen.storyboard 文件 —— 文件没打进包会导致启动崩溃。
+    # 有启动屏声明，iOS 才会按设备原生分辨率渲染；否则判定「未适配新机型」，
+    # 退回兼容缩放模式（画面被拉伸、上下黑边）。
 
 targets:
   MTDownloader:
@@ -27,8 +27,6 @@ targets:
       - path: MTDownloader/DownloadManager.swift
       - path: MTDownloader/ChunkDownloader.swift
       - path: MTDownloader/FilesView.swift
-    resources:
-      - path: MTDownloader/LaunchScreen.storyboard
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mtdownloader.app
@@ -41,7 +39,9 @@ targets:
         CFBundleVersion: "2"
         LSApplicationCategoryType: "public.app-category.utilities"
         UIFileSharingEnabled: true
-        UILaunchStoryboardName: LaunchScreen
+        # Xcode 15+ 官方模板同款：用字典声明启动屏，不需要 storyboard 文件。
+        # 有这一项，iOS 才认定 App 适配了新机型，按原生分辨率渲染。
+        UILaunchScreen: {}
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         UIRequiredDeviceCapabilities:
