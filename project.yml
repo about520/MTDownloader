@@ -28,6 +28,7 @@ targets:
         PRODUCT_NAME: MTDownloader
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
     info:
+      path: MTDownloader/Info.plist
       properties:
         CFBundleDisplayName: 多线程下载器
         CFBundleShortVersionString: "1.0"
