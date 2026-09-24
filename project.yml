@@ -17,7 +17,11 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: MTDownloader
+      - path: MTDownloader/MTDownloaderApp.swift
+      - path: MTDownloader/ContentView.swift
+      - path: MTDownloader/DownloadManager.swift
+      - path: MTDownloader/ChunkDownloader.swift
+      - path: MTDownloader/FilesView.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mtdownloader.app
