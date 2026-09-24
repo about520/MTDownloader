@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
 
-    @StateObject private var dm = DownloadManager()
+    @EnvironmentObject private var dm: DownloadManager
     @State private var urlText: String = ""
     @State private var threadCount: Double = 8
     @State private var showFiles = false
@@ -108,4 +108,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environmentObject(DownloadManager())
 }
