@@ -8,9 +8,13 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    # 1 = iPhone, 2 = iPad，两个家族都支持，iPad 上才能以平板原生分辨率跑
     TARGETED_DEVICE_FAMILY: "1,2"
-    INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
     ENABLE_BITCODE: "NO"
+    # 用真正的 LaunchScreen.storyboard，iOS 才会按设备原生分辨率渲染，
+    # 否则系统会判定「未适配新机型」而退回兼容缩放模式（画面被拉伸、上下黑边）。
+    # 具体的键写在下面的 info.properties 里（UILaunchStoryboardName），
+    # 这里不再重复定义 INFOPLIST_KEY_，避免和生成的 Info.plist 撞键。
 
 targets:
   MTDownloader:
@@ -19,23 +23,36 @@ targets:
     sources:
       - path: MTDownloader/MTDownloaderApp.swift
       - path: MTDownloader/ContentView.swift
+      - path: MTDownloader/DeviceInfo.swift
       - path: MTDownloader/DownloadManager.swift
       - path: MTDownloader/ChunkDownloader.swift
       - path: MTDownloader/FilesView.swift
+    resources:
+      - path: MTDownloader/LaunchScreen.storyboard
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mtdownloader.app
         PRODUCT_NAME: MTDownloader
-        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
     info:
       path: MTDownloader/Info.plist
       properties:
         CFBundleDisplayName: 多线程下载器
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleVersion: "2"
         LSApplicationCategoryType: "public.app-category.utilities"
         UIFileSharingEnabled: true
+        UILaunchStoryboardName: LaunchScreen
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         UIRequiredDeviceCapabilities:
           - arm64
+        # 竖屏 + 横屏 + iPad 全向，转到横屏时按横屏分辨率重排，不会拉伸
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
