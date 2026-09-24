@@ -69,6 +69,17 @@ jobs:
           zip -qry MTDownloader.ipa Payload
           ls -lh MTDownloader.ipa
 
+      - name: 检查产物内容
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" -print -quit)
+          echo "--- .app 内文件 ---"
+          ls -la "$APP"
+          echo "--- Info.plist 全文 ---"
+          /usr/libexec/PlistBuddy -c "Print" "$APP/Info.plist" || plutil -p "$APP/Info.plist"
+          echo "--- 启动屏相关键 ---"
+          /usr/libexec/PlistBuddy -c "Print :UILaunchScreen" "$APP/Info.plist" || echo "(无 UILaunchScreen)"
+          /usr/libexec/PlistBuddy -c "Print :UILaunchStoryboardName" "$APP/Info.plist" || echo "(无 UILaunchStoryboardName)"
+
       - name: 上传 IPA 产物
         uses: actions/upload-artifact@v4
         with:
