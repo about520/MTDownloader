@@ -42,6 +42,11 @@ targets:
         CFBundleVersion: "2"
         LSApplicationCategoryType: "public.app-category.utilities"
         UIFileSharingEnabled: true
+        # iOS 14+ 本地网络隐私：缺了这两项，NWListener/NWBrowser 会直接报
+        # NWError -65555 NoAuth，而且系统连权限弹窗都不弹。
+        NSLocalNetworkUsageDescription: "「多线程下载器」需要在同一 WiFi 下发现附近的设备并互传文件，不会上传到互联网。"
+        NSBonjourServices:
+          - "_mtdl._tcp"
         # Xcode 15+ 官方模板同款：用字典声明启动屏，不需要 storyboard 文件。
         # 有这一项，iOS 才认定 App 适配了新机型，按原生分辨率渲染。
         UILaunchScreen: {}
