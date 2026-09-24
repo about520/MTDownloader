@@ -109,7 +109,7 @@ final class DownloadManager: NSObject, ObservableObject, ChunkDelegate {
         lastSampleDate = Date()
         DispatchQueue.main.async { self.status = "下载中" }
         startTicker()
-        for c in chunks { c.start() }
+        for c in chunks { c.resume() }
     }
 
     func cancelAndDelete() {
@@ -237,7 +237,7 @@ final class DownloadManager: NSObject, ObservableObject, ChunkDelegate {
         startTicker()
         for c in chunks {
             c.delegate = self
-            c.start()
+            c.resume()
         }
     }
 
@@ -259,7 +259,7 @@ final class DownloadManager: NSObject, ObservableObject, ChunkDelegate {
         guard isRunning else { return }
         DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { [weak self] in
             if self?.isRunning == true {
-                chunk.start()
+                chunk.resume()
             }
         }
     }
