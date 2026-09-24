@@ -19,6 +19,16 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: 诊断工作区
+        run: |
+          pwd
+          echo "--- 顶层 ---"
+          ls -la
+          echo "--- swift 文件 ---"
+          find . -name "*.swift" -not -path "./.git/*"
+          echo "--- MTDownloader 目录 ---"
+          ls -la MTDownloader || echo "!! MTDownloader 目录不存在"
+
       - name: 安装 xcodegen
         run: |
           if ! command -v xcodegen >/dev/null 2>&1; then
