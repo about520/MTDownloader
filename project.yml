@@ -1,0 +1,36 @@
+name: MTDownloader
+
+options:
+  bundleIdPrefix: com.mtdownloader
+  deploymentTarget:
+    iOS: "16.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+    ENABLE_BITCODE: "NO"
+
+targets:
+  MTDownloader:
+    type: application
+    platform: iOS
+    sources:
+      - path: MTDownloader
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mtdownloader.app
+        PRODUCT_NAME: MTDownloader
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+    info:
+      properties:
+        CFBundleDisplayName: 多线程下载器
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        LSApplicationCategoryType: "public.app-category.utilities"
+        UIFileSharingEnabled: true
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UIRequiredDeviceCapabilities:
+          - arm64
