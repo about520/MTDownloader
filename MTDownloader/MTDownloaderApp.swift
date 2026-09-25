@@ -25,6 +25,11 @@ struct MTDownloaderApp: App {
                         Label("传文件", systemImage: "wifi")
                     }
 
+                MusicView()
+                    .tabItem {
+                        Label("音乐", systemImage: "music.note")
+                    }
+
                 NavigationStack {
                     FilesView()
                 }
