@@ -13,6 +13,7 @@ struct MusicView: View {
     @State private var playlists: [NeteasePlaylist] = []
     @State private var loading = false
     @State private var note = ""
+    @State private var showCookie = false
 
     var body: some View {
         NavigationStack {
@@ -51,6 +52,20 @@ struct MusicView: View {
                 content
             }
             .navigationTitle("音乐")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showCookie = true
+                    } label: {
+                        Image(systemName: NeteaseAPI.shared.isLoggedIn
+                              ? "person.crop.circle.fill"
+                              : "person.crop.circle")
+                    }
+                }
+            }
+            .sheet(isPresented: $showCookie) {
+                CookieSettingsView()
+            }
         }
     }
 
@@ -126,9 +141,7 @@ struct MusicView: View {
             NeteaseAPI.shared.searchSongs(kw) { r in
                 loading = false
                 songs = r
-                let ok = r.filter { $0.canDownload }.count
-                note = r.isEmpty ? "没搜到歌曲"
-                     : "找到 \(r.count) 首，其中 \(ok) 首免费可下载"
+                note = r.isEmpty ? "没搜到歌曲" : "找到 \(r.count) 首，点下载自动取最佳音质"
             }
         case .artist:
             NeteaseAPI.shared.searchArtists(kw) { r in
@@ -146,6 +159,81 @@ struct MusicView: View {
     }
 }
 
+// MARK: - Cookie 设置（会员解锁）
+
+struct CookieSettingsView: View {
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = NeteaseAPI.shared.cookie
+    @State private var status = ""
+    @State private var checking = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("粘贴网易云 Cookie 可解锁会员歌曲的完整版与无损音质。")
+                    .font(.subheadline)
+
+                Text("获取方法：电脑浏览器打开 music.163.com 并登录 → 按 F12 → Network → 任选一条请求 → 复制 Request Headers 里的 Cookie 整行（需包含 MUSIC_U）。")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextEditor(text: $text)
+                    .font(.caption2)
+                    .frame(minHeight: 120)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+                    .autocorrectionDisabled(true)
+                    .textInputAutocapitalization(.never)
+
+                HStack(spacing: 10) {
+                    Button("保存并校验") {
+                        NeteaseAPI.shared.cookie = text
+                        checking = true
+                        status = ""
+                        NeteaseAPI.shared.checkLogin { s in
+                            checking = false
+                            status = s
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("清空") {
+                        text = ""
+                        NeteaseAPI.shared.cookie = ""
+                        status = "已清空，将按游客方式取链"
+                    }
+
+                    if checking { ProgressView() }
+                }
+
+                if !status.isEmpty {
+                    Text(status)
+                        .font(.caption)
+                        .foregroundColor(status.contains("会员") || status.contains("·")
+                                         ? .green : .orange)
+                }
+
+                Text("不填也能用：多数会员歌曲（fee=8）本身就能拿到完整 320k；只有少数付费单曲（fee=1）是 30 秒试听，此时 App 会自动搜索同名歌的完整版本替代。")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+            }
+            .padding(16)
+            .navigationTitle("会员 Cookie")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - 单曲行
 
 struct SongRow: View {
@@ -155,6 +243,8 @@ struct SongRow: View {
 
     @State private var busy = false
     @State private var msg = ""
+    @State private var quality = ""
+    @State private var isFull = true
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -177,16 +267,25 @@ struct SongRow: View {
                         .font(.caption2)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
-                        .background(song.canDownload
+                        .background(song.fee == 0
                                     ? Color.green.opacity(0.18)
-                                    : Color.orange.opacity(0.20))
+                                    : Color.blue.opacity(0.16))
                         .cornerRadius(4)
+                    if !quality.isEmpty {
+                        Text(quality)
+                            .font(.caption2)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(isFull ? Color.green.opacity(0.18)
+                                               : Color.orange.opacity(0.22))
+                            .cornerRadius(4)
+                    }
                 }
 
                 if !msg.isEmpty {
                     Text(msg)
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isFull ? .secondary : .orange)
                 }
             }
 
@@ -204,24 +303,30 @@ struct SongRow: View {
     }
 
     private func start() {
-        guard song.canDownload else {
-            msg = "这首是付费内容，服务端不下发直链"
-            return
-        }
         busy = true
-        msg = ""
+        msg = "取直链中…"
+        quality = ""
+        isFull = true
 
-        NeteaseAPI.shared.songURL(song.id) { url in
+        NeteaseAPI.shared.fetchLink(for: song) { link in
             busy = false
-            let name = song.suggestedFileName
-            if let u = url {
-                dm.start(urlString: u, threads: 8, preferredName: name)
-                msg = "已开始下载"
+            guard let l = link else {
+                msg = "取直链失败，换一首试试"
+                return
+            }
+            isFull = l.isFull
+            quality = l.isFull ? l.qualityText : "试听30秒"
+
+            let name = l.song.suggestedFileName
+
+            if l.isFull {
+                dm.start(urlString: l.url, threads: 8, preferredName: name)
+                msg = l.swapped
+                    ? "原版仅试听，已换成完整版：\(l.song.name)"
+                    : "已开始下载（\(l.qualityText)）"
             } else {
-                // 兜底：走老的外链接口
-                dm.start(urlString: NeteaseAPI.shared.outerURL(song.id),
-                         threads: 8, preferredName: name)
-                msg = "走备用链路下载"
+                dm.start(urlString: l.url, threads: 4, preferredName: name)
+                msg = "只有 30 秒试听，没找到完整版；填会员 Cookie 可解锁"
             }
         }
     }
@@ -259,9 +364,7 @@ struct ArtistSongsView: View {
             NeteaseAPI.shared.artistSongs(artist.id) { r in
                 loading = false
                 songs = r
-                let ok = r.filter { $0.canDownload }.count
-                note = r.isEmpty ? "没拿到歌曲"
-                     : "\(r.count) 首，\(ok) 首可下载"
+                note = r.isEmpty ? "没拿到歌曲" : "\(r.count) 首热门歌曲"
             }
         }
     }
@@ -297,9 +400,7 @@ struct PlaylistSongsView: View {
             NeteaseAPI.shared.playlistSongs(playlist.id) { r in
                 loading = false
                 songs = r
-                let ok = r.filter { $0.canDownload }.count
-                note = r.isEmpty ? "没拿到歌曲"
-                     : "\(r.count) 首，\(ok) 首可下载"
+                note = r.isEmpty ? "没拿到歌曲" : "\(r.count) 首"
             }
         }
     }
