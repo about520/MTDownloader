@@ -29,6 +29,8 @@ targets:
       - path: MTDownloader/BrowserView.swift
       - path: MTDownloader/LANTransfer.swift
       - path: MTDownloader/LANView.swift
+      - path: MTDownloader/NeteaseAPI.swift
+      - path: MTDownloader/MusicView.swift
       - path: MTDownloader/FilesView.swift
     settings:
       base:
