@@ -63,67 +63,102 @@ final class LANServer: ObservableObject {
 
     private var listener: NWListener?
     private var conns: [NWConnection] = []
+    private var retryAttempt = 0
 
     var deviceName: String { UIDevice.current.name }
 
+    /// -65569 DefunctConnection 这类错误是 mDNSResponder 的瞬时故障（连接失效、
+    /// 服务注册残留、App 从后台恢复等），重建一个全新的监听器就能恢复。
+    /// 所以这里每次 start 都废弃旧实例重建，失败后自动重试最多 3 次。
     func start() {
-        if listener != nil { return }
+        stop(quiet: true)
+        retryAttempt = 0
+        statusText = "正在启动…"
+        createListener()
+    }
+
+    private func createListener() {
+        let l: NWListener
         do {
             let params = NWParameters.tcp
             params.allowLocalEndpointReuse = true
-            let l = try NWListener(using: params, on: .any)
-
-            // 挂上 Bonjour 服务，别的装了本 App 的设备就能自动发现
-            l.service = NWListener.Service(name: deviceName, type: Self.serviceType)
-
-            l.stateUpdateHandler = { [weak self] state in
-                guard let self = self else { return }
-                switch state {
-                case .ready:
-                    let p = Int(l.port?.rawValue ?? 0)
-                    DispatchQueue.main.async {
-                        self.port = p
-                        self.isRunning = true
-                        self.statusText = "可被发现（端口 \(p)）"
-                    }
-                case .failed(let err):
-                    DispatchQueue.main.async {
-                        self.isRunning = false
-                        self.port = 0
-                        self.statusText = Self.friendlyError(err)
-                    }
-                case .cancelled:
-                    DispatchQueue.main.async {
-                        self.isRunning = false
-                        self.port = 0
-                        self.statusText = "已关闭"
-                    }
-                default:
-                    break
-                }
-            }
-
-            l.newConnectionHandler = { [weak self] conn in
-                self?.accept(conn)
-            }
-
-            l.start(queue: .main)
-            self.listener = l
-            DispatchQueue.main.async { self.statusText = "正在启动…" }
+            l = try NWListener(using: params, on: .any)
         } catch {
             statusText = "开启失败：\(error.localizedDescription)"
+            return
         }
+
+        // 挂上 Bonjour 服务，别的装了本 App 的设备就能自动发现
+        l.service = NWListener.Service(name: deviceName, type: Self.serviceType)
+
+        l.stateUpdateHandler = { [weak self] state in
+            guard let self = self else { return }
+            switch state {
+            case .ready:
+                let p = Int(l.port?.rawValue ?? 0)
+                self.port = p
+                self.isRunning = true
+                self.statusText = "可被发现（端口 \(p)）"
+
+            case .failed(let err):
+                // 这个实例已经废了，必须丢弃重建，绝不能复用
+                l.cancel()
+                self.listener = nil
+                self.isRunning = false
+                self.port = 0
+
+                if Self.isPermissionError(err) {
+                    // 本地网络权限没放行，重试也没用，直接提示
+                    self.statusText = Self.friendlyError(err)
+                } else if self.retryAttempt < 3 {
+                    self.retryAttempt += 1
+                    self.statusText = "启动失败（\(Self.shortError(err))），正在自动重试（第 \(self.retryAttempt)/3 次）…"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                        guard let self = self, self.listener == nil, !self.isRunning else { return }
+                        self.createListener()
+                    }
+                } else {
+                    self.statusText = Self.friendlyError(err) + "；已自动重试 3 次仍失败，可开关一次飞行模式后重试"
+                }
+
+            case .cancelled:
+                break   // 状态交给 stop() 或重试流程去更新
+
+            default:
+                break
+            }
+        }
+
+        l.newConnectionHandler = { [weak self] conn in
+            self?.accept(conn)
+        }
+
+        l.start(queue: .main)
+        self.listener = l
     }
 
-    func stop() {
+    /// 权限类错误重试无效，要单独识别
+    private static func isPermissionError(_ e: NWError) -> Bool {
+        let s = String(describing: e)
+        return s.contains("NoAuth") || s.contains("-65555")
+    }
+
+    private static func shortError(_ e: NWError) -> String {
+        let s = String(describing: e)
+        if s.contains("-65569") || s.contains("Defunct") { return "mDNS 连接失效" }
+        if s.contains("EADDRINUSE") { return "端口被占用" }
+        return s
+    }
+
+    func stop(quiet: Bool = false) {
         listener?.cancel()
         listener = nil
         for c in conns { c.cancel() }
         conns.removeAll()
-        DispatchQueue.main.async {
-            self.isRunning = false
-            self.port = 0
-            self.statusText = "已关闭"
+        if !quiet {
+            isRunning = false
+            port = 0
+            statusText = "已关闭"
         }
     }
 
@@ -336,6 +371,10 @@ final class LANServer: ObservableObject {
         // -65555 NoAuth = 本地网络权限没放行（iOS 14+ 隐私限制）
         if s.contains("NoAuth") || s.contains("-65555") {
             return "系统没放行：去 设置 → 隐私与安全性 → 本地网络，打开「多线程下载器」的开关"
+        }
+        // -65569 DefunctConnection = 与 mDNSResponder 的连接失效（多为瞬时故障）
+        if s.contains("-65569") || s.contains("Defunct") {
+            return "系统 mDNS 服务连接失效，重开一次开关通常就能恢复"
         }
         if s.contains("EADDRINUSE") {
             return "端口被占用，请稍后再试"
