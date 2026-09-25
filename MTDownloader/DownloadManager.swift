@@ -66,7 +66,11 @@ final class DownloadManager: NSObject, ObservableObject, ChunkDelegate {
 
     // MARK: 对外接口
 
-    func start(urlString: String, threads: Int) {
+    /// 文件名覆盖。音乐下载时用「歌名 - 歌手.mp3」，
+    /// 否则只能拿到 CDN 那串哈希名。每次 start 会重置。
+    private var preferredName: String?
+
+    func start(urlString: String, threads: Int, preferredName: String? = nil) {
         let text = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { setError("请先填写下载链接"); return }
         guard let url = URL(string: text),
@@ -79,6 +83,7 @@ final class DownloadManager: NSObject, ObservableObject, ChunkDelegate {
 
         sourceURL = url
         threadCount = max(1, min(threads, 32))
+        self.preferredName = preferredName
 
         DispatchQueue.main.async {
             self.errorText = ""
@@ -173,7 +178,9 @@ final class DownloadManager: NSObject, ObservableObject, ChunkDelegate {
             return
         }
 
-        let name = Self.suggestedFileName(for: url)
+        let name = (self.preferredName?.isEmpty == false)
+            ? self.preferredName!
+            : Self.suggestedFileName(for: url)
         begin(url: url, total: total, fileName: name)
     }
 
